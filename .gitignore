@@ -1,6 +1,8 @@
 .git
 **/.env
 .DS_Store
+**/.antigravity
+
 ## **/airflow_settings.yaml
 **/__pycache__/
 **/astro
@@ -10,4 +12,9 @@
 airflow.cfg
 airflow.db
 
-**/include/data/minio/.minio.sys/
+**/include/data/
+
+**/connections_list_notes.yaml
+**/task_planning_ko.md
+**/task_planning.md
+**/web-to-api-server.md
