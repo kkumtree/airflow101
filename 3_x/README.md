@@ -1,45 +1,70 @@
-Overview
-========
+# 프로젝트 안내
 
-Welcome to Astronomer! This project was generated after you ran 'astro dev init' using the Astronomer CLI. This readme describes the contents of the project, as well as how to run Apache Airflow on your local machine.
+본 프로젝트는 로컬 환경에서 Apache Airflow와 Spark를 활용한 주식 데이터 파이프라인을 구축하고 실행하기 위한 가이드입니다. 🇬🇧 [English Version](README.en.md)
 
-Project Contents
-================
+## 1. 사전 요구 사항 (Prerequisites)
 
-Your Astro project contains the following files and folders:
+이 프로젝트를 로컬에서 실행하기 위해서는 다음 도구들이 설치되어 있어야 합니다.
 
-- dags: This folder contains the Python files for your Airflow DAGs. By default, this directory includes one example DAG:
-    - `example_astronauts`: This DAG shows a simple ETL pipeline example that queries the list of astronauts currently in space from the Open Notify API and prints a statement for each astronaut. The DAG uses the TaskFlow API to define tasks in Python, and dynamic task mapping to dynamically print a statement for each astronaut. For more on how this DAG works, see our [Getting started tutorial](https://www.astronomer.io/docs/learn/get-started-with-airflow).
-- Dockerfile: This file contains a versioned Astro Runtime Docker image that provides a differentiated Airflow experience. If you want to execute other commands or overrides at runtime, specify them here.
-- include: This folder contains any additional files that you want to include as part of your project. It is empty by default.
-- packages.txt: Install OS-level packages needed for your project by adding them to this file. It is empty by default.
-- requirements.txt: Install Python packages needed for your project by adding them to this file. It is empty by default.
-- plugins: Add custom or community plugins for your project to this file. It is empty by default.
-- airflow_settings.yaml: Use this local-only file to specify Airflow Connections, Variables, and Pools instead of entering them in the Airflow UI as you develop DAGs in this project.
+*   **Docker**: 컨테이너 하위 환경을 실행하기 위해 필요합니다.
+    *   [Docker 데스크톱 공식 설치 링크](https://docs.docker.com/get-docker/)
+*   **Astro CLI**: 로컬 Airflow 환경을 통합적으로 구성하고 간편하게 띄우기 위한 관리 도구입니다.
+    *   [Astro CLI 공식 설치 링크](https://docs.astronomer.io/astro/cli/install-cli)
 
-Deploy Your Project Locally
-===========================
+## 2. Docker 이미지 빌드
 
-Start Airflow on your local machine by running 'astro dev start'.
+Airflow 워크플로 중 데이터를 가공하는 작업 등에 사용할 커스텀 Docker 이미지들을 먼저 빌드해야 합니다. 작업 디렉토리(터미널)에서 아래 명령어를 복사하여 붙여넣고 실행하세요.
 
-This command will spin up five Docker containers on your machine, each for a different Airflow component:
+```bash
+docker build -t airflow/spark-master ./spark/master && docker build -t airflow/spark-worker ./spark/worker && docker build -t airflow/stock-app ./spark/notebooks/stock_transform  
+```
+*(위 명령어는 `spark-master`, `spark-worker`, 그리고 분산 처리를 위한 `stock-app` 총 세 개의 컨테이너 이미지를 각각 빌드합니다.)*
 
-- Postgres: Airflow's Metadata Database
-- Scheduler: The Airflow component responsible for monitoring and triggering tasks
-- DAG Processor: The Airflow component responsible for parsing DAGs
-- API Server: The Airflow component responsible for serving the Airflow UI and API
-- Triggerer: The Airflow component responsible for triggering deferred tasks
+## 3. Airflow 로컬 환경 실행 및 관리 (Astro)
 
-When all five containers are ready the command will open the browser to the Airflow UI at http://localhost:8080/. You should also be able to access your Postgres Database at 'localhost:5432/postgres' with username 'postgres' and password 'postgres'.
+Astro CLI 명령어로 로컬 Airflow를 실행하고 제어할 수 있습니다.
 
-Note: If you already have either of the above ports allocated, you can either [stop your existing Docker containers or change the port](https://www.astronomer.io/docs/astro/cli/troubleshoot-locally#ports-are-not-available-for-my-local-airflow-webserver).
+*   **환경 시작하기**
+    ```bash
+    astro dev start
+    ```
+    위 명령어를 실행하면 필요한 모든 컨테이너(Webserver, Scheduler, Postgres 등)가 백그라운드에서 구동되며, `http://localhost:8080` 에 접속하여 Airflow UI를 볼 수 있습니다.
 
-Deploy Your Project to Astronomer
-=================================
+*   **환경 중지하기**
+    ```bash
+    astro dev stop
+    ```
+    작업 환경을 일시적으로 중단합니다. 저장된 워크플로나 DB 데이터는 보존됩니다.
 
-If you have an Astronomer account, pushing code to a Deployment on Astronomer is simple. For deploying instructions, refer to Astronomer documentation: https://www.astronomer.io/docs/astro/deploy-code/
+*   **⚠️ 환경 삭제 및 강제 종료 (주의)**
+    ```bash
+    astro dev kill
+    ```
+    **주의:** 이 명령어는 단순히 컨테이너를 종료시키는 것을 넘어서, **Airflow의 메타데이터 DB(Postgres)까지 완전히 삭제**합니다. 모든 대시보드 실행 기록(Run History)과 Connections, Variables가 초기화되니 프로젝트를 완전히 처음부터 깔끔하게 다시 시작하고 싶을 때만 사용하세요.
 
-Contact
-=======
+## 4. 데이터 적재 확인 (워크플로 실행 성공 후)
 
-The Astronomer CLI is maintained with love by the Astronomer team. To report a bug or suggest a change, reach out to our support.
+Airflow UI에서 전체 DAG 파이프라인이 성공적으로 완료되었다면, 터미널에서 `psql` 커맨드로 데이터베이스에 접속해 가공된 주식 데이터 형태를 직접 확인해볼 수 있습니다.
+
+**1) Postgres 터미널 접속하기**
+```bash
+PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d postgres
+```
+
+**2) 가공된 주가 데이터 확인하기 (SQL 조회)**
+
+*   **가장 최근 주식 데이터 10건 조회 (내림차순 정렬):**
+    ```sql
+    SELECT date, open, high, low, close, volume
+    FROM stock_market
+    ORDER BY date DESC
+    LIMIT 10;
+    ```
+*   **현재 테이블에 적재된 총 데이터 로우(행) 수 확인:**
+    ```sql
+    SELECT COUNT(*) FROM stock_market;
+    ```
+*   **데이터베이스 접속 종료:**
+    ```text
+    \q
+    ```
